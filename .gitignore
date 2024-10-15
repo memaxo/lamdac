@@ -1,6 +1,4 @@
 *.pyc
-.venv
-penv
-lenv
+venv
 .python-version
 .DS_Store
