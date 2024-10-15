@@ -7,7 +7,7 @@
 ?exp2: NAME                         -> var
       | "(" exp ")"
 
-NAME: /[a-z_][a-zA-Z0-9_]*/         # names cannot start with upper case
+NAME: /[a-z_][a-zA-Z0-9_]*/         
 
 COMMENT: /--[^\n]*/                 // comments start with --
 %ignore COMMENT
