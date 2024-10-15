@@ -15,6 +15,8 @@ The [grammar](https://codeberg.org/alexhkurz/lambdaC-2024/src/branch/main/gramma
   
 Comments start with `--`.
 
+Due to `NAME: /[a-z_][a-zA-Z0-9_]*/`, variable names are not allowed to start with uppercase letters. [Variable names `Var1`, etc](https://codeberg.org/alexhkurz/lambdaC-2024/src/commit/ee711e80c2c240226f8a1f551b68d68c63431f01/interpreter.py#L61) are reserved for [automatically generated fresh names](https://codeberg.org/alexhkurz/lambdaC-2024/src/commit/ee711e80c2c240226f8a1f551b68d68c63431f01/interpreter.py#L54-L61).
+
 The workflow followed by the interpreter is defined in [`interpret()`](https://codeberg.org/alexhkurz/lambdaC-2024/src/commit/51a84c820052219a6ce9b7f221cf03db9bd02b0b/interpreter.py#L9-L14).
 
 The interesting functions are [`evaluate()`](https://codeberg.org/alexhkurz/lambdaC-2024/src/commit/483feda11b3f9fbf52f8a5d932e37c0a0560a309/interpreter.py#L37-L50) and [`substitute()`](https://codeberg.org/alexhkurz/lambdaC-2024/src/commit/51a84c820052219a6ce9b7f221cf03db9bd02b0b/interpreter.py#L65-L82).
