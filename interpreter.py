@@ -40,7 +40,7 @@ def evaluate(tree):
         if e1[0] == 'lam':
             body = e1[2]
             name = e1[1]
-            argument = evaluate(tree[2])
+            argument = tree[2]
             rhs = substitute(body, name, argument)
             result = evaluate(rhs) 
         else:
