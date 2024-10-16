@@ -62,21 +62,21 @@ class NameGenerator:
 
 name_generator = NameGenerator()
 
-# beta reduction (apply a function to an argument)
+# for beta reduction (capture-avoiding substitution)
 def substitute(tree, name, replacement):
     # tree [replacement/name] = tree with all instances of 'name' replaced by 'replacement'
     if tree[0] == 'var':
         if tree[1] == name:
-            return replacement
+            return replacement # n [r/n] --> r
         else:
-            return tree
+            return tree # x [r/n] --> x
     elif tree[0] == 'lam':
-        # ( \ tree[1] . tree[2] ) [replacement/name]
         if tree[1] == name:
-            return tree
+            return tree # \n.e [r/n] --> \n.e
         else:
-            new_name = name_generator.generate()
-            return ('lam', new_name, substitute(substitute(tree[2], tree[1], ('var', new_name)), name, replacement))
+            fresh_name = name_generator.generate()
+            return ('lam', fresh_name, substitute(substitute(tree[2], tree[1], ('var', fresh_name)), name, replacement))
+            # \x.e [r/n] --> (\fresh.(e[fresh/x])) [r/n]
     elif tree[0] == 'app':
         return ('app', substitute(tree[1], name, replacement), substitute(tree[2], name, replacement))
     else:
