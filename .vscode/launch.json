@@ -8,7 +8,7 @@
             "name": "Interpreter with test.lc",
             "type": "debugpy",
             "request": "launch",
-            "program": "${file}",
+            "program": "interpreter.py",
             "console": "integratedTerminal",
             "args": ["test.lc"]
         }
