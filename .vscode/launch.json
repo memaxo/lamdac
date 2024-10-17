@@ -10,7 +10,8 @@
             "request": "launch",
             "program": "interpreter.py",
             "console": "integratedTerminal",
-            "args": ["test.lc"]
+            "args": ["test.lc"],
+            "cwd": "${fileDirname}"
         }
     ]
 }
