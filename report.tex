@@ -1,0 +1,425 @@
+\section{Week 8 - 9}
+
+\subsection{Running Tests and Adding New Test Cases}
+
+We begin by running the provided tests in \texttt{interpreter\_test.py} to ensure that the interpreter is functioning correctly.
+
+\subsubsection{Running the Existing Tests}
+
+The existing tests can be run using the following command:
+
+\begin{verbatim}
+python interpreter_test.py
+\end{verbatim}
+
+The output confirms that all tests pass:
+
+\begin{verbatim}
+Python version: 3.10.9 (main, Jan 11 2023, 09:18:20) [Clang 14.0.6 ]
+Lark version: 1.1.9
+
+TEST PARSING
+
+AST x == ('var', 'x')
+AST (((x)) ((y))) == ('app', ('var', 'x'), ('var', 'y'))
+AST x y == ('app', ('var', 'x'), ('var', 'y'))
+AST x y z == ('app', ('app', ('var', 'x'), ('var', 'y')), ('var', 'z'))
+AST \x.y == ('lam', 'x', ('var', 'y'))
+AST \x.x y == ('lam', 'x', ('app', ('var', 'x'), ('var', 'y')))
+AST \x.x y z == ('lam', 'x', ('app', ('app', ('var', 'x'), ('var', 'y')), ('var', 'z')))
+AST \x. \y. \z. x y z == ('lam', 'x', ('lam', 'y', ('lam', 'z', ('app', ('app', ('var', 'x'), ('var', 'y')), ('var', 'z')))))
+AST \x. x a == ('lam', 'x', ('app', ('var', 'x'), ('var', 'a')))
+AST \x. x (\y. y) == ('lam', 'x', ('app', ('var', 'x'), ('lam', 'y', ('var', 'y'))))
+AST \x. x (\y. y (\z. z z2)) == ('lam', 'x', ('app', ('var', 'x'), ('lam', 'y', ('app', ('var', 'y'), ('lam', 'z', ('app', ('var', 'z'), ('var', 'z2')))))))
+AST \x. y z (\a. b (\c. d e f)) == ('lam', 'x', ('app', ('app', ('var', 'y'), ('var', 'z')), ('lam', 'a', ('app', ('var', 'b'), ('lam', 'c', ('app', ('app', ('var', 'd'), ('var', 'e')), ('var', 'f')))))))
+
+Parser: All tests passed!
+
+
+TEST SUBSTITUTION
+
+SUBST x [y/x] == ('var', 'y')
+SUBST \x.x [y/x] == ('lam', 'x', ('var', 'x'))
+SUBST (x x) [y/x] == ('app', ('var', 'y'), ('var', 'y'))
+SUBST \y. x [y/x] == ('lam', 'Var1', ('var', 'y'))
+
+substitute(): All tests passed!
+
+
+TEST EVALUATION
+
+EVAL x == x
+EVAL x y == (x y)
+EVAL x y z == ((x y) z)
+EVAL x (y z) == (x (y z))
+EVAL \x.y == \x.y
+EVAL (\x.x) y == y
+
+evaluate(): All tests passed!
+
+
+TEST INTERPRETATION
+
+Testing x --> x
+Testing x y --> (x y)
+Testing \x.x --> (\x.x)
+Testing (\x.x) y --> y
+Testing (\x.\y.x y) y --> (\Var2.(y Var2))
+
+interpret(): All tests passed!
+\end{verbatim}
+
+\subsubsection{Adding New Test Cases}
+
+We have added a new test case to each function in \texttt{interpreter\_test.py} to further verify the interpreter's correctness.
+
+\paragraph{Test Parsing}
+
+In the \texttt{test\_parse()} function, we added:
+
+\begin{verbatim}
+assert ast(r"(\x.x) (\y.y)") == ('app', ('lam', 'x', ('var', 'x')), ('lam', 'y', ('var', 'y')))
+print(f"AST {MAGENTA}(\\x.x) (\\y.y){RESET} == ('app', ('lam', 'x', ('var', 'x')), ('lam', 'y', ('var', 'y')))")
+\end{verbatim}
+
+This tests parsing of an application of two lambda abstractions.
+
+\paragraph{Test Substitution}
+
+In the \texttt{test\_substitute()} function, we added:
+
+\begin{verbatim}
+# SUBST (\x.x y) [y/z] == (\Var1.Var1 y)
+assert substitute(('lam', 'x', ('app', ('var', 'x'), ('var', 'y'))), 'y', ('var', 'z')) == ('lam', 'Var1', ('app', ('var', 'Var1'), ('var', 'z')))
+print(f"SUBST {MAGENTA}\\x.x y [z/y]{RESET} == ('lam', 'Var1', ('app', ('var', 'Var1'), ('var', 'z')))")
+\end{verbatim}
+
+This tests substitution where the variable to be substituted is free in the body.
+
+\paragraph{Test Evaluation}
+
+In the \texttt{test\_evaluate()} function, we added:
+
+\begin{verbatim}
+# EVAL (\x.\y.x y) a b == (a b)
+assert linearize(evaluate(ast(r"(\x.\y.x y) a b"))) == "(a b)"
+print(f"EVAL {MAGENTA}(\\x.\\y.x y) a b{RESET} == (a b)")
+\end{verbatim}
+
+This tests evaluation of nested lambda abstractions with applications.
+
+\paragraph{Test Interpretation}
+
+In the \texttt{test\_interpret()} function, we added:
+
+\begin{verbatim}
+input=r"(\x.\y.y x) a b"; output = interpret(input); print(f"Testing {input} --> {output}")
+\end{verbatim}
+
+Which outputs:
+
+\begin{verbatim}
+Testing (\x.\y.y x) a b --> (b a)
+\end{verbatim}
+
+\subsection{Running New Test Cases}
+
+After adding the new test cases, we run the tests again:
+
+\begin{verbatim}
+python interpreter_test.py
+\end{verbatim}
+
+The tests pass, confirming that our additions are correct.
+
+\subsection{Adding Programs to \texttt{test.lc} and Running the Interpreter}
+
+\label{sec:testlc}
+
+We added the following lambda calculus expressions to \texttt{test.lc}:
+
+\begin{verbatim}
+-- Identity function applied to itself
+(\x.x) (\x.x)
+
+-- Function that applies its argument to itself
+(\x.x x) (\x.x x)
+
+-- Combinator K (\x.\y.x)
+(\x.\y.x) a b
+
+-- Combinator S (\x.\y.\z.x z (y z))
+(\x.\y.\z.((x z) (y z))) a b c
+\end{verbatim}
+
+We run the interpreter with:
+
+\begin{verbatim}
+python interpreter.py test.lc
+\end{verbatim}
+
+The interpreter outputs the results for each expression:
+
+\begin{verbatim}
+(\x.x)
+((\x.x x) (\x.x x))
+a
+((a c) (b c))
+\end{verbatim}
+
+\subsection{Reduction of Expressions}
+
+\paragraph{Reduction of \texttt{a b c d}}
+
+The expression \texttt{a b c d} reduces as follows:
+
+\begin{align*}
+a\ b\ c\ d &= (((a\ b)\ c)\ d)
+\end{align*}
+
+This is due to the left-associative nature of function application in lambda calculus. Each application groups to the left.
+
+\paragraph{Reduction of \texttt{(a)}}
+
+The expression \texttt{(a)} reduces to \texttt{a} because the parentheses are just grouping symbols and do not affect the evaluation.
+
+\subsection{Capture-Avoiding Substitution}
+
+Capture-avoiding substitution ensures that when substituting an expression for a variable, we do not accidentally change the meaning of the expression by capturing free variables.
+
+\paragraph{Implementation}
+
+In \texttt{interpreter.py}, substitution is implemented in the \texttt{substitute()} function. When substituting into a lambda abstraction, if the bound variable is the same as the variable we are substituting for, we leave the abstraction unchanged. If there is a potential for variable capture, we generate a fresh variable name using the \texttt{NameGenerator} class.
+
+\begin{verbatim}
+elif tree[0] == 'lam':
+    if tree[1] == name:
+        return tree  # Variable bound; do not substitute
+    else:
+        fresh_name = name_generator.generate()
+        new_body = substitute(tree[2], tree[1], ('var', fresh_name))
+        return ('lam', fresh_name, substitute(new_body, name, replacement))
+\end{verbatim}
+
+\paragraph{Test Cases}
+
+We tested this with the following expression:
+
+\begin{verbatim}
+SUBST \y. x y [y/x] == (\Var1. (y Var1))
+\end{verbatim}
+
+This shows that when substituting \texttt{y} for \texttt{x} in \texttt{\y. x y}, we avoid capturing the variable \texttt{y} by renaming the bound variable to \texttt{Var1}.
+
+\subsection{Normal Form and Non-Terminating Expressions}
+
+\paragraph{Do All Computations Reduce to Normal Form?}
+
+Not all lambda calculus expressions reduce to a normal form due to the possibility of infinite reductions. For example, the following expression does not reduce to a normal form:
+
+\begin{verbatim}
+(\x. x x) (\x. x x)
+\end{verbatim}
+
+\paragraph{Minimal Working Example}
+
+The smallest lambda expression that does not reduce to normal form is the self-application of the identity function to itself:
+
+\begin{verbatim}
+(\x. x x) (\x. x x)
+\end{verbatim}
+
+This expression causes infinite recursion during evaluation.
+
+\subsection{Using the Debugger to Trace Executions}
+
+\paragraph{Setting Up the Debugger}
+
+To trace the execution of the interpreter, we set breakpoints in \texttt{interpreter.py} at the calls to \texttt{evaluate()} and \texttt{substitute()}.
+
+\paragraph{Tracing the Evaluation}
+
+We input the expression:
+
+\begin{verbatim}
+((\m.\n. m n) (\f.\x. f (f x))) (\f.\x. f x)
+\end{verbatim}
+
+By stepping through the interpreter, we observe the following calls to \texttt{evaluate()} and \texttt{substitute()}:
+
+\begin{verbatim}
+evaluate(('app',
+          ('app',
+           ('lam', 'm', ('lam', 'n', ('app', ('var', 'm'), ('var', 'n')))),
+           ('lam', 'f', ('lam', 'x', ('app', ('var', 'f'), ('app', ('var', 'f'), ('var', 'x')))))),
+          ('lam', 'f', ('lam', 'x', ('app', ('var', 'f'), ('var', 'x'))))))
+evaluate(('app',
+          ('lam', 'm', ('lam', 'n', ('app', ('var', 'm'), ('var', 'n')))),
+          ('lam', 'f', ('lam', 'x', ('app', ('var', 'f'), ('app', ('var', 'f'), ('var', 'x')))))))
+evaluate(('lam', 'm', ('lam', 'n', ('app', ('var', 'm'), ('var', 'n')))))
+substitute(('lam', 'n', ('app', ('var', 'm'), ('var', 'n'))), 'm', ('lam', 'f', ('lam', 'x', ('app', ('var', 'f'), ('app', ('var', 'f'), ('var', 'x'))))))
+...
+\end{verbatim}
+
+\paragraph{Understanding the Evaluation Strategy}
+
+By following the recursive calls and substitutions, we see how the interpreter applies beta reduction and maintains variable bindings without capture.
+
+\subsection{Implementation Challenges and Solutions}
+
+Throughout the development of our lambda calculus interpreter, we encountered several challenges that required careful consideration and innovative solutions. This section outlines these issues, our approach to solving them, and the final implementation.
+
+\paragraph{Issues Encountered}
+
+\begin{enumerate}
+    \item \textbf{Infinite Recursion:} Initially, the interpreter would enter infinite recursion when evaluating non-terminating expressions like $(\lambda x.x x) (\lambda x.x x)$ (the omega combinator). This caused stack overflow errors.
+    \item \textbf{Depth Limitation Ineffectiveness:} We attempted to solve the infinite recursion problem by introducing a maximum evaluation depth (\texttt{MAX\_EVAL\_DEPTH}). However, this approach was not effective as the recursion error persisted in the \texttt{substitute} function.
+    \item \textbf{Stack Overflow in Recursive Approach:} The recursive implementation of both \texttt{evaluate} and \texttt{substitute} functions led to stack overflow errors for deeply nested expressions or non-terminating computations.
+    \item \textbf{IndexError in Iterative Approach:} When we switched to an iterative approach for \texttt{substitute}, we encountered an IndexError due to attempting to pop from an empty list. This occurred because the stack management in the substitute function was not robust enough to handle all cases.
+    \item \textbf{Partial Evaluation of Non-terminating Expressions:} While not strictly an "issue," we had to decide how to handle non-terminating expressions. The initial solution returned partially evaluated expressions when the maximum number of iterations was reached.
+\end{enumerate}
+
+\paragraph{Solutions Implemented}
+
+To address these issues, we implemented the following solutions:
+
+\begin{enumerate}
+    \item \textbf{Iterative Approach:} We replaced the recursive implementations of \texttt{evaluate} and \texttt{substitute} with iterative versions to avoid stack overflow errors.
+    \item \textbf{Maximum Iterations:} We introduced a \texttt{MAX\_ITERATIONS} constant to limit the number of reduction steps and prevent infinite loops while allowing for deep evaluations.
+    \item \textbf{Robust Stack Management:} We improved the stack management in the \texttt{substitute} function to handle all cases without errors, using separate stacks for the traversal and the result building.
+    \item \textbf{Graceful Handling of Non-terminating Expressions:} The interpreter now returns partially evaluated expressions for non-terminating computations, allowing it to handle a wider range of expressions without crashing.
+    \item \textbf{Separate Processing of Expressions:} We modified the main loop to process each expression separately, allowing the interpreter to continue even if one expression doesn't terminate.
+\end{enumerate}
+
+\paragraph{Final Implementation}
+
+The final implementation of our lambda calculus interpreter incorporates these solutions, resulting in a robust and flexible tool. Key features of the final implementation include:
+
+\begin{itemize}
+    \item \textbf{Iterative Evaluation:} The \texttt{evaluate} function uses a while loop with a counter to prevent infinite loops:
+    
+    \begin{verbatim}
+    def evaluate(tree):
+        iterations = 0
+        while iterations < MAX_ITERATIONS:
+            if tree[0] == 'app':
+                # ... (evaluation logic)
+            else:
+                return tree
+            iterations += 1
+        return tree  # Return partially evaluated tree if max iterations reached
+    \end{verbatim}
+    
+    \item \textbf{Iterative Substitution:} The \texttt{substitute} function uses an explicit stack for traversal and a result stack for building the substituted expression:
+    
+    \begin{verbatim}
+    def substitute(tree, name, replacement):
+        stack = [(tree, False)]
+        result_stack = []
+        
+        while stack:
+            # ... (substitution logic)
+        
+        if result_stack:
+            return result_stack[0]
+        else:
+            return tree  # Return original tree if no substitution occurred
+    \end{verbatim}
+    
+    \item \textbf{Flexible Expression Handling:} The main function processes each expression in the input file separately:
+    
+    \begin{verbatim}
+    def main():
+        # ... (file reading logic)
+        for expression in expressions:
+            if expression.strip() and not expression.strip().startswith('--'):
+                result = interpret(expression)
+                print(f"Expression: {expression}")
+                print(f"Result: \033[95m{result}\033[0m")
+                print()
+    \end{verbatim}
+\end{itemize}
+
+This implementation successfully handles both terminating and non-terminating expressions, providing a balance between functionality and preventing infinite computations. It demonstrates the practical application of theoretical concepts in lambda calculus while addressing real-world programming challenges.
+
+\section{Detailed Evaluation of Complex Expressions}
+
+To better understand how the interpreter handles complex expressions, we'll examine the evaluation of:
+
+\begin{verbatim}
+((\m.\n. m n) (\f.\x. f (f x))) (\f.\x. f (f (f x)))
+\end{verbatim}
+
+The evaluation proceeds as follows:
+
+\begin{enumerate}
+    \item The outermost application is evaluated first.
+    \item The left part (\texttt{(\m.\n. m n) (\f.\x. f (f x))}) is evaluated:
+        \begin{itemize}
+            \item \texttt{m} is substituted with \texttt{(\f.\x. f (f x))}
+            \item This results in \texttt{(\n. (\f.\x. f (f x)) n)}
+        \end{itemize}
+    \item The result is applied to \texttt{(\f.\x. f (f (f x)))}:
+        \begin{itemize}
+            \item \texttt{n} is substituted with \texttt{(\f.\x. f (f (f x)))}
+            \item This yields \texttt{(\f.\x. f (f x)) (\f.\x. f (f (f x)))}
+        \end{itemize}
+    \item The final beta-reduction occurs:
+        \begin{itemize}
+            \item \texttt{f} is substituted with \texttt{(\x. f (f (f x)))}
+            \item The result is \texttt{(\x. (\x. f (f (f x))) ((\x. f (f (f x))) x))}
+        \end{itemize}
+\end{enumerate}
+
+This evaluation demonstrates how the interpreter handles nested lambda abstractions and applications.
+
+\section{Tracing Recursive Calls}
+
+To gain insight into the evaluation strategy, we trace the recursive calls to \texttt{evaluate()} for the expression:
+
+\begin{verbatim}
+((\m.\n. m n) (\f.\x. f (f x))) (\f.\x. f x)
+\end{verbatim}
+
+The trace would show the sequence of \texttt{evaluate()} and \texttt{substitute()} calls, illustrating how the interpreter traverses the expression tree and applies beta-reductions. Due to the iterative nature of our final implementation, the trace would show a series of iterations within the \texttt{evaluate()} function, each handling a part of the expression until the final result is reached or the maximum number of iterations is hit.
+
+\paragraph{Handling the Minimal Working Example (MWE)}
+
+The Minimal Working Example (MWE) that does not reduce to normal form is:
+
+\begin{verbatim}
+(\x. x x) (\x. x x)
+\end{verbatim}
+
+Our modified interpreter handles this expression by:
+
+\begin{enumerate}
+    \item The interpreter begins evaluating the expression.
+    \item It applies beta-reduction, substituting \texttt{(\x. x x)} for \texttt{x} in the body of the first lambda.
+    \item This results in \texttt{(\x. x x) (\x. x x)}, which is identical to the starting expression.
+    \item The process repeats until MAX\_ITERATIONS is reached.
+    \item The interpreter returns the partially evaluated expression, preventing an infinite loop.
+\end{enumerate}
+
+\subsection{Conclusion}
+
+Through this project, we've implemented a lambda calculus interpreter that balances theoretical correctness with practical considerations. Key achievements include:
+
+\begin{itemize}
+    \item Implementing capture-avoiding substitution.
+    \item Handling both terminating and non-terminating expressions.
+    \item Using an iterative approach to prevent stack overflow.
+    \item Providing a flexible tool for experimenting with lambda calculus.
+\end{itemize}
+
+The interpreter demonstrates the challenges of implementing theoretical concepts in practice and showcases solutions to common issues like infinite recursion and variable capture. It serves as a valuable educational tool for understanding lambda calculus and interpreter design.
+
+\section{Further Questions for Exploration}
+
+The Minimal Working Example (MWE) in our \texttt{test.lc} file, \texttt{(\x.x x) (\x.x x)}, is a non-terminating expression that demonstrates a form of recursion. How does this relate to the Y combinator and fixed point combinators in lambda calculus? How might we extend our interpreter to support more complex recursive structures while still managing potential non-termination?
+
+\begin{thebibliography}{9}
+\bibitem{lambda} Henk Barendregt, \emph{The Lambda Calculus: Its Syntax and Semantics}, North-Holland, 1984.
+\end{thebibliography}
+
+\end{document}

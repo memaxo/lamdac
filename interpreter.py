@@ -5,6 +5,8 @@ import lark
 print(f"Python version: {sys.version}")
 print(f"Lark version: {lark.__version__}")
 
+MAX_ITERATIONS = 1000  # Limit for iterations to prevent infinite loops
+
 #  run/execute/interpret source code
 def interpret(source_code):
     cst = parser.parse(source_code)
@@ -35,19 +37,25 @@ class LambdaCalculusTransformer(Transformer):
 
 # reduce AST to normal form
 def evaluate(tree):
-    if tree[0] == 'app':
-        e1 = evaluate(tree[1])
-        if e1[0] == 'lam':
-            body = e1[2]
-            name = e1[1]
-            argument = tree[2]
-            rhs = substitute(body, name, argument)
-            result = evaluate(rhs) 
+    iterations = 0
+    while iterations < MAX_ITERATIONS:
+        if tree[0] == 'app':
+            e1 = tree[1]
+            e2 = tree[2]
+            if e1[0] == 'lam':
+                body = e1[2]
+                name = e1[1]
+                tree = substitute(body, name, e2)
+            else:
+                e1 = evaluate(e1)
+                if e1[0] == 'lam':
+                    tree = ('app', e1, e2)
+                else:
+                    return ('app', e1, evaluate(e2))
         else:
-            result = ('app', e1, tree[2])
-    else:
-        result = tree
-    return result
+            return tree
+        iterations += 1
+    return tree  # Return the tree as is if max iterations reached
 
 # generate a fresh name 
 # needed eg for \y.x [y/x] --> \z.y where z is a fresh name)
@@ -57,30 +65,49 @@ class NameGenerator:
 
     def generate(self):
         self.counter += 1
-        # user defined names start with lower case (see the grammar), thus 'Var' is fresh
         return 'Var' + str(self.counter)
 
 name_generator = NameGenerator()
 
 # for beta reduction (capture-avoiding substitution)
 def substitute(tree, name, replacement):
-    # tree [replacement/name] = tree with all instances of 'name' replaced by 'replacement'
-    if tree[0] == 'var':
-        if tree[1] == name:
-            return replacement # n [r/n] --> r
+    stack = [(tree, False)]
+    result_stack = []
+    
+    while stack:
+        node, visited = stack.pop()
+        if visited:
+            if node[0] == 'var':
+                if node[1] == name:
+                    result_stack.append(replacement)
+                else:
+                    result_stack.append(node)
+            elif node[0] == 'lam':
+                if node[1] == name:
+                    result_stack.append(node)
+                else:
+                    fresh_name = name_generator.generate()
+                    new_body = substitute(substitute(node[2], node[1], ('var', fresh_name)), name, replacement)
+                    result_stack.append(('lam', fresh_name, new_body))
+            elif node[0] == 'app':
+                right = result_stack.pop()
+                left = result_stack.pop()
+                result_stack.append(('app', left, right))
         else:
-            return tree # x [r/n] --> x
-    elif tree[0] == 'lam':
-        if tree[1] == name:
-            return tree # \n.e [r/n] --> \n.e
-        else:
-            fresh_name = name_generator.generate()
-            return ('lam', fresh_name, substitute(substitute(tree[2], tree[1], ('var', fresh_name)), name, replacement))
-            # \x.e [r/n] --> (\fresh.(e[fresh/x])) [r/n]
-    elif tree[0] == 'app':
-        return ('app', substitute(tree[1], name, replacement), substitute(tree[2], name, replacement))
+            if node[0] == 'app':
+                stack.append((node, True))
+                stack.append((node[2], False))
+                stack.append((node[1], False))
+            elif node[0] == 'lam':
+                stack.append((node, True))
+                stack.append((node[2], False))
+            else:
+                stack.append((node, True))
+    
+    if result_stack:
+        return result_stack[0]
     else:
-        raise Exception('Unknown tree', tree)
+        return tree  # Return original tree if no substitution occurred
 
 def linearize(ast):
     if ast[0] == 'var':
@@ -99,10 +126,14 @@ def main():
 
     filename = sys.argv[1]
     with open(filename, 'r') as file:
-        expression = file.read()
+        expressions = file.read().split('\n')
 
-    result = interpret(expression)
-    print(f"\033[95m{result}\033[0m")
+    for expression in expressions:
+        if expression.strip() and not expression.strip().startswith('--'):
+            result = interpret(expression)
+            print(f"Expression: {expression}")
+            print(f"Result: \033[95m{result}\033[0m")
+            print()
 
 if __name__ == "__main__":
     main()

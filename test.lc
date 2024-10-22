@@ -1,3 +1,13 @@
+-- MWE that previously did not terminate
+(\x.x x) (\x.x x)
+
+-- Identity function applied to itself
+(\x.x) (\x.x)
+
+-- Double application
+(\x.x x) a
+
+-- Original test cases
 (\x.x) a
 -- (\x.\y.x) a b
 -- (\x.\y.y) a b
