@@ -13,3 +13,38 @@
 -- (\x.\y.y) a b
 -- ((\m.\n. m n) (\f.\x. f (f x))) (\f.\x. f (f (f x))) 
 
+-- Test cases for arithmetic operations and lambda calculus expressions
+
+-- Identity function applied to an arithmetic expression
+(\x.x) (1--2)
+
+-- Identity function applied to multiple unary minuses
+(\x.x) (---2)
+
+-- Lambda function adding 1
+(\x.x + 1) 5
+
+-- Lambda function multiplying a number by itself
+(\x.x * x) 3
+
+-- Nested lambda functions adding two numbers
+(\x.\y.x + y) 3 4
+
+-- Mixed arithmetic operations
+1-2*3-4
+
+-- Multiplication after function application
+(\x.x * x) 2 * 3
+
+-- Multiplication with negative numbers
+(\x.x * x) (-2) * (-3)
+
+-- Application of functions without evaluation under lambda
+\x.(\y.y)x
+
+-- Composite expressions
+((\x.x * x) -2) * -3
+
+-- Using function application with arithmetic
+(\x.x) (1---2)
+

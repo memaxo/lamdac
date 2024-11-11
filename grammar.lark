@@ -1,15 +1,46 @@
+// Start rule is defined implicitly by being first
 ?start: exp
 
-?exp: "\\" NAME "." exp             -> lam
-      | exp1            
-?exp1: exp1 exp2                    -> app
-      | exp2
-?exp2: NAME                         -> var
-      | "(" exp ")"
-
-NAME: /[a-z_][a-zA-Z0-9_]*/         
-
-COMMENT: /--[^\n]*/                 // comments start with --
-%ignore COMMENT
+// Import common rules
+%import common.SIGNED_NUMBER -> NUMBER
+%import common.CNAME -> NAME
 %import common.WS
+
+// Comments start with //
+COMMENT: /\/\/[^\n]*/
+%ignore COMMENT
 %ignore WS
+
+// Tokens
+LAMBDA: "\\"
+DOT: "."
+PLUS: "+"
+MINUS: "-"
+TIMES: "*"
+DIVIDE: "/"
+LPAR: "("
+RPAR: ")"
+
+// Grammar Rules
+?exp: expression
+
+?expression: term
+          | expression PLUS term    -> add
+          | expression MINUS term   -> sub
+
+?term: factor
+     | term TIMES factor     -> mul
+     | term DIVIDE factor    -> div
+
+?factor: primary
+       | MINUS factor        -> neg
+       | lambda_abs
+
+?primary: atom
+        | primary atom       -> app
+
+?lambda_abs: LAMBDA NAME DOT expression    -> lam
+
+?atom: NUMBER               -> num
+     | NAME                -> var
+     | LPAR expression RPAR -> group

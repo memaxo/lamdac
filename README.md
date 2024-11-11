@@ -1,27 +1,99 @@
 # Lambda Calculus Interpreter in Python
 
+A sophisticated implementation of lambda calculus with arithmetic operations, demonstrating key concepts in programming language theory and interpreter design.
+
 ## Installation
 
 Requirements: `python` (`python3`) and `pip` (`pip3`).
 
 Install with `source setup.sh`. Then `python interpreter_test.py` should pass all tests. You can run your own program in `test.lc` with `python interpreter.py test.lc`. 
 
-## Description
+## Project Structure
 
-The [grammar](https://codeberg.org/alexhkurz/lambdaC-2024/src/branch/main/grammar.lark) supports the standard rules for dropping parentheses with the possible exception of `\a.b \c.d e` which must be written as `\a.b (\c.d e)`. This aligns with standard practice in many functional programming languages and simplifies the grammar. As usual, the following expressions have the same abstract syntax trees:
+### 1. Grammar Definition (grammar.lark)
 
-  - `a b c` = `(a b) c`
-  - `\a. \b. c d` = `\a. (\b. c d)`
+The grammar file defines our language's syntax using Lark parser combinators. Notable features:
+
+- Elegant handling of operator precedence through rule layering:
+  ```lark
+  ?exp: lambda_abs | add_sub
+  ?add_sub: add_sub PLUS mul | add_sub MINUS mul | mul
+  ?mul: mul TIMES application | application
+  ?application: application atom | atom
+  ```
+- Support for lambda abstractions, arithmetic, and function application
+- Careful handling of whitespace and comments
+- Proper associativity rules for function application and operators
+
+### 2. Core Interpreter (interpreter.py)
+
+The interpreter implements the evaluation engine with several sophisticated features:
+
+- **AST Implementation**: Uses Python dataclasses for a clean, typed AST representation
+- **Evaluation Strategy**: 
+  - Implements call-by-name evaluation
+  - Lazy evaluation under lambda abstractions
+  - Proper handling of arithmetic operations
+- **Key Components**:
+  ```python
+  def evaluate(expr: Expr, iterations: int = 0) -> Expr:
+      # Handles beta reduction and arithmetic evaluation
   
-Comments start with `--`.
+  def substitute(expr: Expr, name: str, replacement: Expr) -> Expr:
+      # Implements capture-avoiding substitution
+  ```
 
-Due to `NAME: /[a-z_][a-zA-Z0-9_]*/`, variable names are not allowed to start with uppercase letters. [Variable names `Var1`, etc](https://codeberg.org/alexhkurz/lambdaC-2024/src/commit/ee711e80c2c240226f8a1f551b68d68c63431f01/interpreter.py#L61) are reserved for [automatically generated fresh names](https://codeberg.org/alexhkurz/lambdaC-2024/src/commit/ee711e80c2c240226f8a1f551b68d68c63431f01/interpreter.py#L54-L61).
+### 3. Test Suite (interpreter_test.py)
 
-The workflow followed by the interpreter is defined in [`interpret()`](https://codeberg.org/alexhkurz/lambdaC-2024/src/commit/51a84c820052219a6ce9b7f221cf03db9bd02b0b/interpreter.py#L9-L14).
+Comprehensive test suite demonstrating and verifying language features:
 
-The interesting functions are [`evaluate()`](https://codeberg.org/alexhkurz/lambdaC-2024/src/commit/483feda11b3f9fbf52f8a5d932e37c0a0560a309/interpreter.py#L37-L50) and [`substitute()`](https://codeberg.org/alexhkurz/lambdaC-2024/src/commit/49ad646b3f1f025c44eeec144cc5c6f5194faac2/interpreter.py#L66-L83).
+- Basic lambda calculus reduction
+- Arithmetic evaluation
+- Variable capture avoidance
+- Operator precedence
+- Lazy evaluation behavior
 
-## Exercises
+## Language Features
 
-A [series of exercises](https://hackmd.io/@alexhkurz/S1R1F6_1yx) has been designed to help students explore the material.
+### Lambda Calculus
+- Standard lambda abstraction: `\x.e`
+- Function application: `f x`
+- Variable references
+- Proper capture-avoiding substitution
+
+### Arithmetic Operations
+- Addition: `+`
+- Multiplication: `*`
+- Subtraction: `-`
+- Negation: `-x`
+
+### Evaluation Rules
+
+1. **Beta Reduction**: `(\x.e) v → e[v/x]`
+2. **Arithmetic**: Evaluates arithmetic expressions when operands are numeric
+3. **Lazy Evaluation**: Expressions under lambdas remain unevaluated
+4. **Application**: Left-associative function application
+
+### Syntax Notes
+
+- Function application: `a b c` = `(a b) c`
+- Lambda abstraction: `\a.\b.c d` = `\a.(\b.c d)`
+- Variable names must start with lowercase letters
+- `Var1`, `Var2`, etc. are reserved for fresh variable generation
+- Comments start with `//`
+
+## Implementation Details
+
+### Parser Workflow
+1. Lark parser converts source to concrete syntax tree
+2. LambdaCalculusTransformer converts to typed AST
+3. Evaluator performs reductions and arithmetic
+4. Linearizer converts result back to string representation
+
+### Key Features
+- Capture-avoiding substitution
+- Proper precedence handling
+- Maximum iteration protection
+- Comprehensive error handling
+- Type-safe implementation
 
