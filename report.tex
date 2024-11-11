@@ -418,6 +418,132 @@ The interpreter demonstrates the challenges of implementing theoretical concepts
 
 The Minimal Working Example (MWE) in our \texttt{test.lc} file, \texttt{(\x.x x) (\x.x x)}, is a non-terminating expression that demonstrates a form of recursion. How does this relate to the Y combinator and fixed point combinators in lambda calculus? How might we extend our interpreter to support more complex recursive structures while still managing potential non-termination?
 
+\section{Extension to Arithmetic Operations}
+
+\subsection{Major Changes from Initial Implementation}
+
+Our implementation evolved from a basic lambda calculus interpreter to support arithmetic operations. Here are the key changes:
+
+\paragraph{1. Data Structure Evolution}
+The AST representation changed from tuples to typed dataclasses:
+\begin{verbatim}
+# Old Implementation
+('lam', str(name), body)
+('app', *new_args)
+('var', str(token))
+
+# New Implementation
+@dataclass
+class Expr: pass
+
+@dataclass
+class Var(Expr):
+    name: str
+
+@dataclass
+class Lam(Expr):
+    param: str
+    body: Expr
+\end{verbatim}
+
+\paragraph{2. Grammar Extensions}
+The grammar was extended to support arithmetic operations with proper precedence:
+\begin{verbatim}
+?expression: term
+          | expression PLUS term    -> add
+          | expression MINUS term   -> sub
+
+?term: factor
+     | term TIMES factor     -> mul
+     | term DIVIDE factor    -> div
+
+?factor: primary
+       | MINUS factor        -> neg
+       | lambda_abs
+\end{verbatim}
+
+\paragraph{3. Error Handling}
+Added comprehensive error handling with custom exception classes:
+\begin{verbatim}
+class InterpreterError(Exception): pass
+class ParserError(InterpreterError): pass
+class EvaluationError(InterpreterError): pass
+class SubstitutionError(InterpreterError): pass
+class MaxIterationsError(InterpreterError): pass
+\end{verbatim}
+
+\paragraph{4. Context Management}
+Introduced a Context class for managing evaluation state:
+\begin{verbatim}
+@dataclass
+class Context:
+    env: Dict[str, Expr]
+    in_lambda: bool = False
+    iterations: int = 0
+\end{verbatim}
+
+\subsection{New Features and Capabilities}
+
+\paragraph{1. Arithmetic Operations}
+The interpreter now supports:
+\begin{itemize}
+    \item Addition and subtraction
+    \item Multiplication and division
+    \item Unary negation
+    \item Proper operator precedence
+\end{itemize}
+
+\paragraph{2. Type Safety}
+Added throughout the codebase:
+\begin{itemize}
+    \item Type hints for all functions
+    \item Dataclass-based AST nodes
+    \item Runtime type checking
+\end{itemize}
+
+\paragraph{3. Error Protection}
+New safety features:
+\begin{itemize}
+    \item Division by zero checks
+    \item Arithmetic overflow protection
+    \item Maximum iteration limits
+    \item Proper error messages
+\end{itemize}
+
+\subsection{Testing Improvements}
+
+Added comprehensive test cases for new features:
+
+\begin{verbatim}
+def test_arithmetic_evaluation(self):
+    self.assertEqual(linearize(evaluate(ast("1 + 2"))), "3.0")
+    self.assertEqual(linearize(evaluate(ast("2 * 3"))), "6.0")
+    self.assertEqual(linearize(evaluate(ast("-2"))), "-2.0")
+    self.assertEqual(linearize(evaluate(ast("1 - 2 * 3"))), "-5.0")
+    self.assertEqual(linearize(evaluate(ast("6 / 2"))), "3.0")
+
+def test_mixed_evaluation(self):
+    self.assertEqual(linearize(evaluate(ast("(\\x.x + 1) 2"))), "3.0")
+    self.assertEqual(linearize(evaluate(ast("(\\x.x * x) 3"))), "9.0")
+    self.assertEqual(linearize(evaluate(ast("(\\x.x) (1 + 2)"))), "3.0")
+\end{verbatim}
+
+\subsection{Future Considerations}
+
+Potential areas for further development:
+
+\begin{itemize}
+    \item Implementation of boolean operations
+    \item Support for let-bindings and recursion
+    \item Addition of type checking
+    \item Implementation of list operations
+    \item Support for pattern matching
+\end{itemize}
+
+\section{Conclusion}
+
+The extension of our lambda calculus interpreter to support arithmetic operations represents a significant step toward a more practical functional programming language. The addition of typed data structures, comprehensive error handling, and proper operator precedence demonstrates the evolution from a theoretical model to a more practical implementation while maintaining the fundamental principles of lambda calculus.
+
 \begin{thebibliography}{9}
 \bibitem{lambda} Henk Barendregt, \emph{The Lambda Calculus: Its Syntax and Semantics}, North-Holland, 1984.
 \end{thebibliography}
