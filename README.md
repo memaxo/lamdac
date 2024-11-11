@@ -1,99 +1,158 @@
-# Lambda Calculus Interpreter in Python
+# Lambda Calculus Interpreter with Arithmetic
 
-A sophisticated implementation of lambda calculus with arithmetic operations, demonstrating key concepts in programming language theory and interpreter design.
+A sophisticated implementation of a lambda calculus interpreter extended with arithmetic operations. This project demonstrates fundamental concepts in programming language theory including parsing, evaluation strategies, and type-safe interpretation.
 
-## Installation
+## Features
 
-Requirements: `python` (`python3`) and `pip` (`pip3`).
+- Full lambda calculus implementation
+- Arithmetic operations (+, -, *, /)
+- Lazy evaluation strategy
+- Capture-avoiding substitution
+- Proper operator precedence
+- Comprehensive error handling
 
-Install with `source setup.sh`. Then `python interpreter_test.py` should pass all tests. You can run your own program in `test.lc` with `python interpreter.py test.lc`. 
+## Quick Start
 
-## Project Structure
+1. Requirements:
+   - Python 3.8 or higher
+   - pip package manager
 
-### 1. Grammar Definition (grammar.lark)
+2. Installation:
+   ```
+   source setup.sh
+   ```
 
-The grammar file defines our language's syntax using Lark parser combinators. Notable features:
+3. Run tests:
+   ```
+   python interpreter_test.py
+   ```
 
-- Elegant handling of operator precedence through rule layering:
-  ```lark
-  ?exp: lambda_abs | add_sub
-  ?add_sub: add_sub PLUS mul | add_sub MINUS mul | mul
-  ?mul: mul TIMES application | application
-  ?application: application atom | atom
-  ```
-- Support for lambda abstractions, arithmetic, and function application
-- Careful handling of whitespace and comments
-- Proper associativity rules for function application and operators
+4. Run your program:
+   ```
+   python interpreter.py your_program.lc
+   ```
 
-### 2. Core Interpreter (interpreter.py)
+## Language Guide
 
-The interpreter implements the evaluation engine with several sophisticated features:
+### Basic Syntax
 
-- **AST Implementation**: Uses Python dataclasses for a clean, typed AST representation
-- **Evaluation Strategy**: 
-  - Implements call-by-name evaluation
-  - Lazy evaluation under lambda abstractions
-  - Proper handling of arithmetic operations
-- **Key Components**:
-  ```python
-  def evaluate(expr: Expr, iterations: int = 0) -> Expr:
-      # Handles beta reduction and arithmetic evaluation
-  
-  def substitute(expr: Expr, name: str, replacement: Expr) -> Expr:
-      # Implements capture-avoiding substitution
-  ```
+1. Lambda Expressions:
+   - Abstraction: `\x.e`
+   - Application: `f x`
+   - Variables: `x`, `y`, `z`
 
-### 3. Test Suite (interpreter_test.py)
+2. Arithmetic:
+   - Addition: `x + y`
+   - Subtraction: `x - y`
+   - Multiplication: `x * y`
+   - Division: `x / y`
+   - Negation: `-x`
 
-Comprehensive test suite demonstrating and verifying language features:
+3. Numbers:
+   - Integer literals: `1`, `2`, `3`
+   - Negative numbers: `-1`, `-2`
+   - Floating point: `1.5`, `2.0`
 
-- Basic lambda calculus reduction
-- Arithmetic evaluation
-- Variable capture avoidance
-- Operator precedence
-- Lazy evaluation behavior
+### Operator Precedence (highest to lowest)
 
-## Language Features
+1. Parentheses `()`
+2. Function application
+3. Negation `-`
+4. Multiplication `*` and division `/`
+5. Addition `+` and subtraction `-`
+6. Lambda abstraction `\`
 
-### Lambda Calculus
-- Standard lambda abstraction: `\x.e`
-- Function application: `f x`
-- Variable references
-- Proper capture-avoiding substitution
+### Examples
 
-### Arithmetic Operations
-- Addition: `+`
-- Multiplication: `*`
-- Subtraction: `-`
-- Negation: `-x`
+1. Basic Lambda Calculus:
+   ```
+   (\x.x) y              => y
+   (\x.\y.x) a b         => a
+   (\x.x x) (\x.x)       => (\x.x)
+   ```
 
-### Evaluation Rules
+2. Arithmetic:
+   ```
+   1 + 2 * 3             => 7
+   (\x.x * x) 3          => 9
+   (\x.\y.x + y) 3 4     => 7
+   ```
 
-1. **Beta Reduction**: `(\x.e) v → e[v/x]`
-2. **Arithmetic**: Evaluates arithmetic expressions when operands are numeric
-3. **Lazy Evaluation**: Expressions under lambdas remain unevaluated
-4. **Application**: Left-associative function application
-
-### Syntax Notes
-
-- Function application: `a b c` = `(a b) c`
-- Lambda abstraction: `\a.\b.c d` = `\a.(\b.c d)`
-- Variable names must start with lowercase letters
-- `Var1`, `Var2`, etc. are reserved for fresh variable generation
-- Comments start with `//`
+3. Mixed Expressions:
+   ```
+   (\x.x + 1) 5          => 6
+   (\x.x * x + 2) 3      => 11
+   ```
 
 ## Implementation Details
 
-### Parser Workflow
-1. Lark parser converts source to concrete syntax tree
-2. LambdaCalculusTransformer converts to typed AST
-3. Evaluator performs reductions and arithmetic
-4. Linearizer converts result back to string representation
+### Core Components
 
-### Key Features
-- Capture-avoiding substitution
-- Proper precedence handling
-- Maximum iteration protection
-- Comprehensive error handling
-- Type-safe implementation
+1. Parser (`grammar.lark`):
+   - Defines language syntax using Lark grammar
+   - Handles operator precedence and associativity
+   - Manages whitespace and comments
+
+2. AST (`interpreter.py`):
+   - Type-safe expression representation
+   - Dataclasses for each expression type
+   - Clear separation of concerns
+
+3. Evaluator:
+   - Lazy evaluation strategy
+   - Capture-avoiding substitution
+   - Arithmetic evaluation
+   - Error handling
+
+### Error Handling
+
+1. Parser Errors:
+   - Syntax errors
+   - Invalid tokens
+   - Unexpected input
+
+2. Evaluation Errors:
+   - Division by zero
+   - Arithmetic overflow
+   - Maximum recursion depth
+   - Type mismatches
+
+3. Runtime Protection:
+   - Iteration limits
+   - Stack overflow prevention
+   - Memory protection
+
+## Testing
+
+The test suite (`interpreter_test.py`) covers:
+
+1. Core Lambda Calculus:
+   - Beta reduction
+   - Variable capture
+   - Complex applications
+
+2. Arithmetic Operations:
+   - Basic arithmetic
+   - Operator precedence
+   - Mixed expressions
+
+3. Error Cases:
+   - Division by zero
+   - Overflow conditions
+   - Invalid syntax
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new features
+4. Submit a pull request
+
+## License
+
+MIT License - See LICENSE file for details
+
+## Acknowledgments
+
+Based on the lambda calculus implementation guidelines from Programming Languages course at Chapman University.
 

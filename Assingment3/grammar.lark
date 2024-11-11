@@ -1,0 +1,15 @@
+?start: exp
+
+?exp: "\\" NAME "." exp             -> lam
+      | exp1            
+?exp1: exp1 exp2                    -> app
+      | exp2
+?exp2: NAME                         -> var
+      | "(" exp ")"
+
+NAME: /[a-z_][a-zA-Z0-9_]*/         
+
+COMMENT: /--[^\n]*/                 // comments start with --
+%ignore COMMENT
+%import common.WS
+%ignore WS
