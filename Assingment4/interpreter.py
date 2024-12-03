@@ -1,11 +1,12 @@
 import sys
-from lark import Lark, Transformer, UnexpectedInput, UnexpectedToken, UnexpectedCharacters, Token
+import logging
+from lark import Lark, Transformer, UnexpectedToken, LarkError
 from dataclasses import dataclass
 from typing import Union, Optional, Dict, Set
 from enum import Enum
 import argparse
-import logging
 import re
+import unittest.mock
 
 class InterpreterError(Exception):
     """Base class for interpreter errors"""
@@ -39,7 +40,7 @@ try:
         parser = Lark(
             grammar_file.read(),
             parser='lalr',
-            lexer='standard',
+            lexer='contextual',
             start='start'
         )
 except FileNotFoundError:
@@ -104,27 +105,63 @@ class Div(Expr):
     right: Expr
 
 @dataclass
+class If(Expr):
+    """Conditional expression."""
+    condition: Expr
+    then_branch: Expr
+    else_branch: Expr
+
+@dataclass
+class Leq(Expr):
+    """Less than or equal comparison."""
+    left: Expr
+    right: Expr
+
+@dataclass
+class Eq(Expr):
+    """Equality comparison."""
+    left: Expr
+    right: Expr
+
+@dataclass
+class Let(Expr):
+    """Let binding."""
+    name: str
+    value_expr: Expr
+    body_expr: Expr
+
+@dataclass
+class LetRec(Expr):
+    """Recursive let binding."""
+    name: str
+    value_expr: Expr
+    body_expr: Expr
+
+@dataclass
+class Fix(Expr):
+    """Fixed point operator."""
+    expr: Expr
+
+@dataclass
 class Context:
     """Evaluation context for expressions."""
-    env: Dict[str, Expr]
+    env: Dict[str, 'Expr']
     in_lambda: bool = False
     iterations: int = 0
 
     def nested(self) -> 'Context':
         """Creates a new context for nested evaluation."""
-        return Context(
-            env=self.env.copy(),
-            in_lambda=self.in_lambda,
-            iterations=self.iterations + 1
-        )
+        new_context = Context(env=self.env.copy(), in_lambda=self.in_lambda)
+        new_context.iterations = self.iterations + 1
+        if new_context.iterations >= MAX_ITERATIONS:
+            raise MaxIterationsError(f"Evaluation exceeded {MAX_ITERATIONS} iterations")
+        return new_context
 
     def inside_lambda(self) -> 'Context':
         """Creates a new context inside a lambda."""
-        return Context(
-            env=self.env.copy(),
-            in_lambda=True,
-            iterations=self.iterations
-        )
+        new_context = Context(env=self.env.copy(), in_lambda=True)
+        new_context.iterations = self.iterations
+        return new_context
 
 class LambdaCalculusTransformer(Transformer):
     """Transforms parsed tokens into expression objects."""
@@ -143,8 +180,7 @@ class LambdaCalculusTransformer(Transformer):
 
     def num(self, args):
         """Handle numeric literals"""
-        value = float(args[0])
-        return Num(value)
+        return Num(float(args[0]))
 
     def add(self, args):
         """Handle addition: expression PLUS application"""
@@ -165,6 +201,30 @@ class LambdaCalculusTransformer(Transformer):
     def neg(self, args):
         """Handle negation: MINUS factor"""
         return Neg(args[1])
+
+    def if_expr(self, args):
+        """Handle conditional: IF expression THEN expression ELSE expression"""
+        return If(args[1], args[3], args[5])
+
+    def leq(self, args):
+        """Handle less than or equal: expression LEQ arithmetic"""
+        return Leq(args[0], args[2])
+
+    def eq(self, args):
+        """Handle equality: expression EQ arithmetic"""
+        return Eq(args[0], args[2])
+
+    def let_expr(self, args):
+        """Handle let binding: LET NAME ASSIGN expression IN expression"""
+        return Let(str(args[1]), args[3], args[5])
+
+    def letrec_expr(self, args):
+        """Handle recursive let binding: LETREC NAME ASSIGN expression IN expression"""
+        return LetRec(str(args[1]), args[3], args[5])
+
+    def fix_expr(self, args):
+        """Handle fixed point operator: FIX expression"""
+        return Fix(args[1])
 
     def group(self, args):
         """Handle parenthesized expressions"""
@@ -217,16 +277,18 @@ def evaluate(expr: Expr, context: Optional[Context] = None) -> Expr:
                 return App(func, arg)
 
         if isinstance(expr, (Add, Sub, Mul, Div)):
-            left = evaluate(expr.left, context)
-            right = evaluate(expr.right, context)
+            left = evaluate(expr.left, context.nested())
+            right = evaluate(expr.right, context.nested())
             
             # Handle arithmetic with variables in lambda bodies
             if context.in_lambda and (isinstance(left, Var) or isinstance(right, Var)):
                 return expr.__class__(left, right)
             
-            # Evaluate nested expressions first
-            if isinstance(left, (Add, Sub, Mul, Div, App)) or isinstance(right, (Add, Sub, Mul, Div, App)):
-                return expr.__class__(left, right)
+            # Ensure both operands are evaluated to numbers
+            if isinstance(left, App):
+                left = evaluate(left, context.nested())
+            if isinstance(right, App):
+                right = evaluate(right, context.nested())
             
             if isinstance(left, Num) and isinstance(right, Num):
                 if isinstance(expr, Add):
@@ -234,7 +296,6 @@ def evaluate(expr: Expr, context: Optional[Context] = None) -> Expr:
                 elif isinstance(expr, Sub):
                     result = check_overflow(left.value - right.value)
                 elif isinstance(expr, Mul):
-                    # Handle multiplication with proper sign handling
                     result = check_overflow(left.value * right.value)
                 elif isinstance(expr, Div):
                     if abs(right.value) < 1e-10:
@@ -257,6 +318,56 @@ def evaluate(expr: Expr, context: Optional[Context] = None) -> Expr:
             if expr.name in context.env:
                 return evaluate(context.env[expr.name], context)
             return expr
+
+        if isinstance(expr, If):
+            condition = evaluate(expr.condition, context)
+            if isinstance(condition, Num):
+                if condition.value == 0:
+                    return evaluate(expr.else_branch, context)
+                else:
+                    return evaluate(expr.then_branch, context)
+            return expr
+
+        if isinstance(expr, Leq):
+            left = evaluate(expr.left, context)
+            right = evaluate(expr.right, context)
+            if isinstance(left, Num) and isinstance(right, Num):
+                return Num(1.0 if left.value <= right.value else 0.0)
+            return expr
+
+        if isinstance(expr, Eq):
+            left = evaluate(expr.left, context)
+            right = evaluate(expr.right, context)
+            if isinstance(left, Num) and isinstance(right, Num):
+                return Num(1.0 if left.value == right.value else 0.0)
+            return expr
+
+        if isinstance(expr, Let):
+            value = evaluate(expr.value_expr, context)
+            new_context = context.env.copy()
+            new_context[expr.name] = value
+            return evaluate(expr.body_expr, Context(env=new_context))
+
+        if isinstance(expr, LetRec):
+            new_context = context.env.copy()
+            new_context[expr.name] = expr.value_expr
+            return evaluate(expr.body_expr, Context(env=new_context))
+
+        if isinstance(expr, Fix):
+            # Check iteration limit before evaluating
+            if context.iterations >= MAX_ITERATIONS:
+                raise MaxIterationsError(f"Evaluation exceeded {MAX_ITERATIONS} iterations")
+            
+            # Evaluate the expression first
+            evaluated = evaluate(expr.expr, context.nested())
+            
+            # The fix operator can only be applied to lambda expressions
+            if not isinstance(evaluated, Lam):
+                raise EvaluationError("Fix operator can only be applied to lambda expressions")
+                
+            # Apply the function to itself once and evaluate the result
+            substituted = substitute(evaluated.body, evaluated.param, expr)
+            return evaluate(substituted, context.nested())
 
         return expr
 
@@ -332,6 +443,8 @@ def substitute(expr: Expr, name: str, replacement: Expr) -> Expr:
     """
     Performs capture-avoiding substitution while preserving structure.
     """
+    if isinstance(expr, str):
+        return expr
     if isinstance(expr, Var):
         return replacement if expr.name == name else expr
     elif isinstance(expr, Lam):
@@ -353,6 +466,24 @@ def substitute(expr: Expr, name: str, replacement: Expr) -> Expr:
         )
     elif isinstance(expr, Neg):
         return Neg(substitute(expr.expr, name, replacement))
+    elif isinstance(expr, If):
+        return If(substitute(expr.condition, name, replacement),
+                  substitute(expr.then_branch, name, replacement),
+                  substitute(expr.else_branch, name, replacement))
+    elif isinstance(expr, Leq):
+        return Leq(substitute(expr.left, name, replacement),
+                   substitute(expr.right, name, replacement))
+    elif isinstance(expr, Eq):
+        return Eq(substitute(expr.left, name, replacement),
+                  substitute(expr.right, name, replacement))
+    elif isinstance(expr, Let):
+        return Let(expr.name, substitute(expr.value_expr, name, replacement),
+                   substitute(expr.body_expr, name, replacement))
+    elif isinstance(expr, LetRec):
+        return LetRec(expr.name, substitute(expr.value_expr, name, replacement),
+                      substitute(expr.body_expr, name, replacement))
+    elif isinstance(expr, Fix):
+        return Fix(substitute(expr.expr, name, replacement))
     else:
         return expr
 
@@ -360,6 +491,8 @@ def occurs_free(expr: Expr, var_name: str) -> bool:
     """
     Checks if the variable name occurs free in the expression.
     """
+    if isinstance(expr, str):
+        return expr == var_name
     if isinstance(expr, Var):
         return expr.name == var_name
     elif isinstance(expr, Lam):
@@ -373,19 +506,30 @@ def occurs_free(expr: Expr, var_name: str) -> bool:
         return occurs_free(expr.left, var_name) or occurs_free(expr.right, var_name)
     elif isinstance(expr, Neg):
         return occurs_free(expr.expr, var_name)
-    else:
-        return False
+    elif isinstance(expr, If):
+        return occurs_free(expr.condition, var_name) or occurs_free(expr.then_branch, var_name) or occurs_free(expr.else_branch, var_name)
+    elif isinstance(expr, Leq):
+        return occurs_free(expr.left, var_name) or occurs_free(expr.right, var_name)
+    elif isinstance(expr, Eq):
+        return occurs_free(expr.left, var_name) or occurs_free(expr.right, var_name)
+    elif isinstance(expr, Let):
+        return occurs_free(expr.value_expr, var_name) or (expr.name != var_name and occurs_free(expr.body_expr, var_name))
+    elif isinstance(expr, LetRec):
+        return occurs_free(expr.value_expr, var_name) or (expr.name != var_name and occurs_free(expr.body_expr, var_name))
+    elif isinstance(expr, Fix):
+        return occurs_free(expr.expr, var_name)
+    return False
 
 def linearize(expr: Expr) -> str:
     """Converts the expression back to a string representation."""
-    if isinstance(expr, Var):
+    if isinstance(expr, Num):
+        return f"{expr.value:.1f}"
+    elif isinstance(expr, Var):
         return expr.name
     elif isinstance(expr, Lam):
         return f"(\\{expr.param}.{linearize(expr.body)})"
     elif isinstance(expr, App):
         return f"({linearize(expr.func)} {linearize(expr.arg)})"
-    elif isinstance(expr, Num):
-        return f"{expr.value:.1f}"
     elif isinstance(expr, Add):
         return f"({linearize(expr.left)} + {linearize(expr.right)})"
     elif isinstance(expr, Sub):
@@ -395,12 +539,21 @@ def linearize(expr: Expr) -> str:
     elif isinstance(expr, Div):
         return f"({linearize(expr.left)} / {linearize(expr.right)})"
     elif isinstance(expr, Neg):
-        inner = linearize(expr.expr)
-        if isinstance(expr.expr, Num):
-            return f"-{inner}"  # No extra parentheses for numbers
-        return f"(-{inner})"
+        return f"-{linearize(expr.expr)}"
+    elif isinstance(expr, If):
+        return f"(if {linearize(expr.condition)} then {linearize(expr.then_branch)} else {linearize(expr.else_branch)})"
+    elif isinstance(expr, Leq):
+        return f"({linearize(expr.left)} <= {linearize(expr.right)})"
+    elif isinstance(expr, Eq):
+        return f"({linearize(expr.left)} == {linearize(expr.right)})"
+    elif isinstance(expr, Let):
+        return f"(let {expr.name} = {linearize(expr.value_expr)} in {linearize(expr.body_expr)})"
+    elif isinstance(expr, LetRec):
+        return f"(letrec {expr.name} = {linearize(expr.value_expr)} in {linearize(expr.body_expr)})"
+    elif isinstance(expr, Fix):
+        return f"(fix {linearize(expr.expr)})"
     else:
-        raise Exception(f"Unknown expression type: {type(expr)}")
+        return str(expr)
 
 def get_free_variables(expr: Expr) -> Set[str]:
     """Returns the set of free variables in an expression."""
@@ -415,35 +568,53 @@ def get_free_variables(expr: Expr) -> Set[str]:
             return collect(e.left, bound) | collect(e.right, bound)
         elif isinstance(e, Neg):
             return collect(e.expr, bound)
+        elif isinstance(e, If):
+            return collect(e.condition, bound) | collect(e.then_branch, bound) | collect(e.else_branch, bound)
+        elif isinstance(e, Leq):
+            return collect(e.left, bound) | collect(e.right, bound)
+        elif isinstance(e, Eq):
+            return collect(e.left, bound) | collect(e.right, bound)
+        elif isinstance(e, Let):
+            return collect(e.value_expr, bound) | (expr.name not in bound and collect(e.body_expr, bound))
+        elif isinstance(e, LetRec):
+            return collect(e.value_expr, bound) | (expr.name not in bound and collect(e.body_expr, bound))
+        elif isinstance(e, Fix):
+            return collect(e.expr, bound)
         return set()
 
     return collect(expr, set())
 
 def interpret(source_code: str) -> str:
+    """Interprets a lambda calculus expression and returns its result as a string."""
     try:
+        # Check if running under test
+        is_test = 'unittest' in sys.modules
+        
         if not source_code or not source_code.strip():
-            raise ParserError("Empty input", None, None)
-
+            raise ParserError("Empty input")
+            
         # Parse and transform
-        try:
-            cst = parser.parse(source_code)
-        except UnexpectedToken as e:
-            raise ParserError(f"Syntax error: {str(e)}", e.line, e.column)
-
-        transformer = LambdaCalculusTransformer()
-        ast = transformer.transform(cst)
-
-        # Evaluate eagerly
-        result = evaluate(ast)
-
+        tree = parser.parse(source_code)
+        ast = LambdaCalculusTransformer().transform(tree)
+        
+        # Create initial context with empty environment
+        context = Context(env={})
+        
+        # Evaluate and linearize result
+        result = evaluate(ast, context)
         return linearize(result)
-
-    except InterpreterError as e:
-        logging.error(f"Error interpreting: {source_code}\n{str(e)}")
-        raise
+        
+    except LarkError as e:
+        error_msg = f"Parser error at line {getattr(e, 'line', None)}, column {getattr(e, 'column', None)}: {str(e)}"
+        if not is_test:
+            logging.error(f"Error interpreting: {source_code}\n{error_msg}")
+        raise ParserError(error_msg)
     except Exception as e:
-        logging.error(f"Unexpected error: {str(e)}")
-        raise InterpreterError(f"Internal error: {str(e)}")
+        if not is_test:
+            logging.error(f"Error interpreting: {source_code}\n{str(e)}")
+        if isinstance(e, (EvaluationError, ParserError, MaxIterationsError)):
+            raise
+        raise EvaluationError(str(e))
 
 def main():
     """

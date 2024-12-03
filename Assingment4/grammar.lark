@@ -18,15 +18,40 @@ PLUS: "+"
 MINUS: "-"
 TIMES: "*"
 DIVIDE: "/"
+LEQ: "<="
+EQ: "=="
+IF: "if"
+THEN: "then"
+ELSE: "else"
+LET: "let"
+IN: "in"
+LETREC: "letrec"
+FIX: "fix"
+ASSIGN: "="
 LPAR: "("
 RPAR: ")"
 
 // Grammar Rules
 ?exp: expression
 
-?expression: term
-          | expression PLUS term    -> add
-          | expression MINUS term   -> sub
+?expression: if_expr
+          | let_expr
+          | letrec_expr
+          | comparison
+
+?if_expr: IF expression THEN expression ELSE expression -> if_expr
+
+?let_expr: LET NAME ASSIGN expression IN expression -> let_expr
+
+?letrec_expr: LETREC NAME ASSIGN expression IN expression -> letrec_expr
+
+?comparison: arithmetic
+          | comparison LEQ arithmetic -> leq
+          | comparison EQ arithmetic  -> eq
+
+?arithmetic: term
+          | arithmetic PLUS term    -> add
+          | arithmetic MINUS term   -> sub
 
 ?term: factor
      | term TIMES factor     -> mul
@@ -34,12 +59,15 @@ RPAR: ")"
 
 ?factor: primary
        | MINUS factor        -> neg
-       | lambda_abs
 
 ?primary: atom
+        | lambda_abs
+        | fix_expr
         | primary atom       -> app
 
 ?lambda_abs: LAMBDA NAME DOT expression    -> lam
+
+?fix_expr: FIX primary -> fix_expr
 
 ?atom: NUMBER               -> num
      | NAME                -> var
