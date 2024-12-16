@@ -1,74 +1,67 @@
-// Start rule is defined implicitly by being first
-?start: exp
+?start: top_level
 
-// Import common rules
-%import common.SIGNED_NUMBER -> NUMBER
+// Top-level sequencing: multiple expressions separated by ;;
+top_level: expression (";;" expression)* -> sequence
+
+// Expressions are built up from if/let/letrec at the highest level of precedence
+?expression: if_expr
+           | let_expr
+           | letrec_expr
+           | comparison
+
+// Conditionals and let-bindings
+?if_expr: "if" expression "then" expression "else" expression -> if_expr
+?let_expr: "let" NAME "=" expression "in" expression -> let_expr
+?letrec_expr: "letrec" NAME "=" expression "in" expression -> letrec_expr
+
+// Comparisons
+?comparison: list_expr
+           | comparison "<=" list_expr -> leq
+           | comparison "==" list_expr -> eq
+
+// Lists: either nil (#) or cons chains with proper precedence
+?list_expr: cons_expr
+          | arithmetic
+
+?cons_expr: arithmetic ":" list_expr -> cons_op
+
+// Arithmetic: +, -, *, / layers
+?arithmetic: term
+           | arithmetic "+" term -> add
+           | arithmetic "-" term -> sub
+
+?term: factor
+     | term "*" factor -> mul
+     | term "/" factor -> div
+
+// hd and tl apply at the factor level to ensure correct precedence
+?factor: list_operation
+       | "-" factor -> neg
+       | single_expr
+
+?list_operation: "hd" list_expr -> hd
+               | "tl" list_expr -> tl
+
+?single_expr: primary
+            | "#" -> nil
+
+// Primary: lambda abstractions, application, fix, atom
+?primary: lambda_abs
+        | fix_expr
+        | atom
+        | primary atom -> app
+
+?lambda_abs: "\\" NAME "." expression -> lam
+?fix_expr: "fix" factor -> fix_expr
+
+?atom: NUMBER -> num
+     | NAME -> var
+     | "(" expression ")"
+
+// Allow negative numbers directly
+NUMBER: /-?\d+(\.\d+)?([eE][+-]?\d+)?/
+
 %import common.CNAME -> NAME
 %import common.WS
 
-// Comments start with //
-COMMENT: /\/\/[^\n]*/
-%ignore COMMENT
 %ignore WS
-
-// Tokens
-LAMBDA: "\\"
-DOT: "."
-PLUS: "+"
-MINUS: "-"
-TIMES: "*"
-DIVIDE: "/"
-LEQ: "<="
-EQ: "=="
-IF: "if"
-THEN: "then"
-ELSE: "else"
-LET: "let"
-IN: "in"
-LETREC: "letrec"
-FIX: "fix"
-ASSIGN: "="
-LPAR: "("
-RPAR: ")"
-
-// Grammar Rules
-?exp: expression
-
-?expression: if_expr
-          | let_expr
-          | letrec_expr
-          | comparison
-
-?if_expr: IF expression THEN expression ELSE expression -> if_expr
-
-?let_expr: LET NAME ASSIGN expression IN expression -> let_expr
-
-?letrec_expr: LETREC NAME ASSIGN expression IN expression -> letrec_expr
-
-?comparison: arithmetic
-          | comparison LEQ arithmetic -> leq
-          | comparison EQ arithmetic  -> eq
-
-?arithmetic: term
-          | arithmetic PLUS term    -> add
-          | arithmetic MINUS term   -> sub
-
-?term: factor
-     | term TIMES factor     -> mul
-     | term DIVIDE factor    -> div
-
-?factor: primary
-       | MINUS factor        -> neg
-
-?primary: atom
-        | lambda_abs
-        | fix_expr
-        | primary atom       -> app
-
-?lambda_abs: LAMBDA NAME DOT expression    -> lam
-
-?fix_expr: FIX primary -> fix_expr
-
-?atom: NUMBER               -> num
-     | NAME                -> var
-     | LPAR expression RPAR -> group
